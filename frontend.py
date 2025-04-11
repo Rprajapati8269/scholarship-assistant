@@ -2,76 +2,64 @@ import streamlit as st
 import requests
 from streamlit_chat import message
 
-st.set_page_config(page_title="SSF Scholarship Assistant", page_icon="🎓", layout="centered")
+st.set_page_config(page_title="SSF Scholarship Assistant", page_icon="🎓")
+st.markdown(
+    "<h1 style='text-align: center; color: #4CAF50;'>🎓 SSF Scholarship Assistant</h1>",
+    unsafe_allow_html=True
+)
 
-# Custom CSS styling
-st.markdown("""
+# Background image using CSS (optional styling)
+st.markdown(
+    """
     <style>
-    body {
-        background: linear-gradient(to right, #fdfbfb, #ebedee);
-    }
-    .main {
-        background-color: #ffffff;
-        border-radius: 12px;
-        padding: 2rem;
-        box-shadow: 0 10px 20px rgba(0,0,0,0.1);
-    }
-    .css-1aumxhk {
-        padding-top: 2rem;
-    }
-    .stButton>button {
-        background-color: #2a9d8f;
-        color: white;
-        border: none;
-        padding: 0.6rem 1.2rem;
-        border-radius: 8px;
-        font-weight: bold;
-    }
-    .stButton>button:hover {
-        background-color: #21867a;
-    }
+        .stApp {
+            background-image: url('https://source.unsplash.com/featured/?student,books,education');
+            background-size: cover;
+        }
+        .stTextInput > div > div > input {
+            background-color: #fff !important;
+        }
     </style>
-""", unsafe_allow_html=True)
-
-st.markdown("## 🎓 SSF AI Assistant")
-st.markdown("#### Helping you with your scholarship application or renewal")
+    """,
+    unsafe_allow_html=True
+)
 
 # Initialize chat history
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
 
 # User input box
-user_input = st.chat_input("Type your message...")
+user_input = st.chat_input("How can I help you with your scholarship application or renewal?")
 
-# Display existing conversation
-for msg in st.session_state.chat_history:
-    message(
-        msg["content"],
-        is_user=(msg["role"] == "user"),
-        avatar_style="thumbs" if msg["role"] == "user" else "big-smile"
-    )
+# Display chat history
+for i, (user_msg, bot_msg) in enumerate(st.session_state.chat_history):
+    message(user_msg, is_user=True, avatar_style="thumbs", key=f"user-{i}")
+    message(bot_msg, is_user=False, avatar_style="fun-emoji", key=f"bot-{i}")
 
-# Handle new message
+# Send new message to backend and get response
 if user_input:
-    # Append user's message
-    st.session_state.chat_history.append({"role": "user", "content": user_input})
-    message(user_input, is_user=True, avatar_style="thumbs")
+    st.session_state.chat_history.append((user_input, "⏳ Thinking..."))
+    
+    # Render the user's message immediately
+    message(user_input, is_user=True, avatar_style="thumbs", key=f"user-{len(st.session_state.chat_history)}")
 
-    # Send message to backend
-    with st.spinner("SSF AI is typing..."):
-        try:
-            res = requests.post("https://scholarship-assistant.onrender.com/ask-llama", json={"user_message": user_input})
-            result = res.json()
+    try:
+        response = requests.post(
+            "https://scholarship-assistant.onrender.com/chat",  # Your Render backend
+            json={"user_input": user_input},
+            timeout=20
+        )
 
-            # Check for error response from backend
-            if "response" in result:
-                assistant_reply = result["response"]
-            else:
-                assistant_reply = f"⚠️ Error from AI: {result.get('error', 'Unknown error')}"
-        
-        except Exception as e:
-            assistant_reply = f"❌ Failed to connect to backend: {e}"
+        if response.status_code == 200:
+            bot_response = response.json().get("response", "Something went wrong.")
+        else:
+            bot_response = "❌ Failed to reach the assistant. Please try again later."
 
-    # Append assistant reply
-    st.session_state.chat_history.append({"role": "assistant", "content": assistant_reply})
-    message(assistant_reply, is_user=False, avatar_style="big-smile")
+    except Exception as e:
+        bot_response = f"⚠️ Error: {e}"
+
+    # Replace temporary bot message with actual one
+    st.session_state.chat_history[-1] = (user_input, bot_response)
+
+    # Show updated bot message
+    message(bot_response, is_user=False, avatar_style="fun-emoji", key=f"bot-{len(st.session_state.chat_history)}")
