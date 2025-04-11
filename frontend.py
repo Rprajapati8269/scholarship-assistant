@@ -8,16 +8,13 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# Background image using CSS (optional styling)
+# Background image using CSS
 st.markdown(
     """
     <style>
         .stApp {
             background-image: url('https://source.unsplash.com/featured/?student,books,education');
             background-size: cover;
-        }
-        .stTextInput > div > div > input {
-            background-color: #fff !important;
         }
     </style>
     """,
@@ -31,35 +28,32 @@ if "chat_history" not in st.session_state:
 # User input box
 user_input = st.chat_input("How can I help you with your scholarship application or renewal?")
 
-# Display chat history
+# Display previous chat messages
 for i, (user_msg, bot_msg) in enumerate(st.session_state.chat_history):
     message(user_msg, is_user=True, avatar_style="thumbs", key=f"user-{i}")
     message(bot_msg, is_user=False, avatar_style="fun-emoji", key=f"bot-{i}")
 
-# Send new message to backend and get response
+# If there's new user input
 if user_input:
     st.session_state.chat_history.append((user_input, "⏳ Thinking..."))
-    
-    # Render the user's message immediately
     message(user_input, is_user=True, avatar_style="thumbs", key=f"user-{len(st.session_state.chat_history)}")
 
     try:
+        # Send to your updated backend endpoint
         response = requests.post(
-            "https://scholarship-assistant.onrender.com/chat",  # Your Render backend
+            "https://scholarship-assistant.onrender.com/ask-llama",
             json={"user_input": user_input},
             timeout=20
         )
 
         if response.status_code == 200:
-            bot_response = response.json().get("response", "Something went wrong.")
+            bot_response = response.json().get("response", "⚠️ No response content.")
         else:
-            bot_response = "❌ Failed to reach the assistant. Please try again later."
+            bot_response = "❌ Failed to get a valid response from the assistant."
 
     except Exception as e:
         bot_response = f"⚠️ Error: {e}"
 
-    # Replace temporary bot message with actual one
+    # Update chat history with the bot's real response
     st.session_state.chat_history[-1] = (user_input, bot_response)
-
-    # Show updated bot message
     message(bot_response, is_user=False, avatar_style="fun-emoji", key=f"bot-{len(st.session_state.chat_history)}")
